@@ -53,6 +53,7 @@ PDAnalyzer::PDAnalyzer() {
   setUserParameter( "genOnly", "f" ); //to be set to true to run on GEN Only samples
   setUserParameter( "debug", "f" ); // set to true to activate debugging printout
   setUserParameter( "tagCalChannel", "BuJPsiKData2018" );
+  setUserParameter( "useBestPV", "f" );
 }
 
 PDAnalyzer::~PDAnalyzer() {
@@ -77,6 +78,7 @@ void PDAnalyzer::beginJob() {
   getUserParameter( "outputFile", outputFile );
   getUserParameter( "process", process );
   getUserParameter( "tagCalChannel", tagCalChannel );
+  getUserParameter( "useBestPV", useBestPV );
   
   cout<<"verbose "<<verbose<<endl;
   cout<<"ptCut "<<ptCut<<endl;
@@ -87,6 +89,7 @@ void PDAnalyzer::beginJob() {
   cout<<"process "<<process<<endl;
   cout<<"tagCalChannel "<<tagCalChannel<<endl;
   cout<<"askHltMatch "<<askHltMatch<<endl;
+  cout<<"useBestPV "<<useBestPV<<endl;
 
 
   if(genOnly && !use_gen){cout<<" !!!!------------------- genOnly && !use_gen -----------------!!!! "<<endl;}
@@ -166,11 +169,17 @@ bool PDAnalyzer::analyze( int entry, int event_file, int event_tot ) {
 
   TLorentzVector mu_p_Bus, mu_m_Bus, k_p_Bus, k_m_Bus; //needed in gen block so declared here
 
+  int selectedPV, selectedPVgen, selectedSV;
+  TVector3 vSV, pSV;
+  // float selectedCosPoint;
+
+
   if(!genOnly){
     //----- SEARCH FOR CANDIDATES
     int iSV = -1;
     float selVprob = -1;
     int MuMatchHLT = 0, KMatchHLT = 0;
+    int nCandidates = 0;
 
     for ( int isvt = 0; isvt < nSVertices; ++isvt ){
       if(svtType->at(isvt) != PDEnumString::svtBsJPsiPhi && process == "Bs") continue;
@@ -224,9 +233,16 @@ bool PDAnalyzer::analyze( int entry, int event_file, int event_tot ) {
       selVprob = tmpVprob;
       MuMatchHLT = mumatch;
       KMatchHLT = kmatch;
+
+      nCandidates++;
+
     }
 
+    (tWriter->nCand) = nCandidates;
+
     if(iSV < 0) return false;
+
+    selectedSV = iSV;
 
     int isbs = -1;
     if(process=="Bs") isbs = 1;
@@ -258,6 +274,8 @@ bool PDAnalyzer::analyze( int entry, int event_file, int event_tot ) {
       (tWriter->THLT_Jmu) = jpsimu;
       (tWriter->THLT_Jtktk) = jpsitktk;
       (tWriter->THLT_Jtk) = jpsitk;
+
+      if(!jpsimu) return false;
     }
 
     vector<int> mu_idx_refit, k_idx_refit;
@@ -489,6 +507,11 @@ bool PDAnalyzer::analyze( int entry, int event_file, int event_tot ) {
     }
 
     int ipv = svtPVtx->at(iSV);
+
+    selectedPV = pvIndex;
+    pSV = Bs.Vect();
+    vSV = SVpos;
+    // selectedCosPoint = cosPoint;
 
     (tWriter->TcosPoint) = cosPoint;
 
@@ -850,6 +873,126 @@ bool PDAnalyzer::analyze( int entry, int event_file, int event_tot ) {
 
       if(genOnly && BsIndex==-999) return false;
 
+      if (GetMixStatus(BsIndex)==0) {
+        selectedPVgen = BsIndex;
+      }else {
+        const vector <int>& aM = allMothers(BsIndex);
+        selectedPVgen = aM[0];
+      }
+
+      float pvXgen = genVx->at(selectedPVgen);
+      float pvYgen = genVy->at(selectedPVgen);
+      float pvZgen = genVz->at(selectedPVgen);
+
+      counter[0]++;
+
+      float bestDist = 999.;
+      int bestPV = -1;
+
+      for(int iPV = 0; iPV < nPVertices; ++iPV ) {
+        float tmpPx = pvtX->at(iPV);
+        float tmpPy = pvtY->at(iPV);
+        float tmpPz = pvtZ->at(iPV);
+
+        float dx = pvXgen-tmpPx;
+        float dy = pvYgen-tmpPy;
+        float dz = pvZgen-tmpPz;
+
+        float dist = sqrt(pow(dx,2)+pow(dy,2)+pow(dz,2));
+
+        if(dist < bestDist){
+          bestDist = dist;
+          bestPV   = iPV;
+        }
+      }
+
+      if(bestPV !=-1 && bestPV != selectedPV){
+        counter[1]++;
+        // float dx = genVx->at(selectedPVgen)-pvtX->at(bestPV);
+        // float dy = genVy->at(selectedPVgen)-pvtY->at(bestPV);
+        // float dz = genVz->at(selectedPVgen)-pvtZ->at(bestPV);
+        // float distErr = sqrt( (pow(dx,2)*pow(pvtSxx->at(bestPV),2)
+        //               +pow(dy,2)*pow(pvtSyy->at(bestPV),2)
+        //               +pow(dz,2)*pow(pvtSzz->at(bestPV),2)
+        //               + 2*dx*dy*pvtSxy->at(bestPV)
+        //               + 2*dx*dz*pvtSxz->at(bestPV)
+        //               + 2*dy*dz*pvtSyz->at(bestPV)
+        //               )/(pow(dx,2)+pow(dy,2)+pow(dz,2)) );
+
+        (tWriter->pvtBestDist3D) = bestDist;
+        (tWriter->pvtSelectedBestDist3D) = sqrt(pow(pvtX->at(bestPV)-pvtX->at(selectedPV),2)+pow(pvtY->at(bestPV)-pvtY->at(selectedPV),2)+pow(pvtY->at(bestPV)-pvtY->at(selectedPV),2));
+
+        if(useBestPV){
+          // Recomputing ct
+          TVector3 newPV;
+          newPV.SetXYZ(pvtX->at(bestPV),pvtY->at(bestPV),pvtZ->at(bestPV));
+          TVector3 PVSVdist = vSV - newPV;
+          pSV.SetZ(0.);
+          PVSVdist.SetZ(0.);
+          float newLxy = BSMASS*PVSVdist.Dot(pSV)/pSV.Mag2();
+          (tWriter->TLxy) = newLxy;
+
+          // Recomputing ctErr
+          TMatrixF covSV(3,3);
+          float covSVArray[]={
+            svtSxx->at(selectedSV),svtSxy->at(selectedSV),svtSxz->at(selectedSV),
+            svtSxy->at(selectedSV),svtSyy->at(selectedSV),svtSyz->at(selectedSV),
+            svtSxz->at(selectedSV),svtSyz->at(selectedSV),svtSzz->at(selectedSV)
+          };
+          covSV.SetMatrixArray(covSVArray);
+            
+          TMatrixF covPV(3,3);
+          float covPVArray[]={
+            pvtSxx->at(bestPV),pvtSxy->at(bestPV),pvtSxz->at(bestPV),
+            pvtSxy->at(bestPV),pvtSyy->at(bestPV),pvtSyz->at(bestPV),
+            pvtSxz->at(bestPV),pvtSyz->at(bestPV),pvtSzz->at(bestPV)
+          };
+          covPV.SetMatrixArray(covPVArray);
+            
+          TMatrixF covTot= covSV+covPV;
+
+          float distArray2D[]={float((vSV-newPV).X()),float((vSV-newPV).Y()),0.};
+          TVectorF diff2D(3,distArray2D);
+            
+          float newLxyErr=-999;
+            
+          if(diff2D.Norm2Sqr()==0){
+            cout << "secondary vertex is exactly the same as PV" << endl;
+            return false; //if the secondary vertex is exactly the same as PV continue
+          }
+            
+          TVector3 diff2DV(diff2D[0],diff2D[1],diff2D[2]); 
+          newLxyErr = TMath::Abs(BSMASS/pSV.Mag()*sqrt(covTot.Similarity(diff2D))/sqrt(diff2D.Norm2Sqr())*cos(diff2DV.Angle(pSV))); 
+          
+          (tWriter->TLxyErr) = newLxyErr;
+
+          // recomputing tagging
+          setVtxOsMuonTag(selectedSV, bestPV); //set PV and SVT for tagging class
+          bool istagged = makeOsMuonTagging();
+
+          (tWriter->Ttag) = getOsMuonTag(); //get tag decision -1, +1 or 0 
+
+          if(istagged){
+            (tWriter->Tmtag) = getOsMuonTagMistagProbRaw();
+            (tWriter->TmtagCal) = getOsMuonTagMistagProbCalProcess();
+            (tWriter->TmtagCalBs) = getOsMuonTagMistagProbCalProcessBuBs();
+          }else{
+            (tWriter->Tmtag) = 0.5;
+            (tWriter->TmtagCal) = 0.5;
+            (tWriter->TmtagCalBs) = 0.5;
+          }
+
+          // cout<<"Dist: "<<bestDist<<" v "<<sqrt(pow(genVx->at(selectedPVgen)-pvtX->at(selectedPV),2)+pow(genVy->at(selectedPVgen)-pvtY->at(selectedPV),2)+pow(genVz->at(selectedPVgen)-pvtZ->at(selectedPV),2))<<endl;
+          // TVector3 vPV;
+          // vPV.SetXYZ(pvtX->at(bestPV),pvtY->at(bestPV),pvtZ->at(bestPV));
+          // TVector3 diff= vSV-vPV;
+          // float cpoint = cos(diff.Angle(pSV));
+          // cout<<"Point: "<<cpoint<<" v "<<selectedCosPoint<<endl<<endl;
+        }
+      }else{
+        (tWriter->pvtBestDist3D) = -1;
+      }
+
       if (debug) cout << "Found MC event, tot particles " << nGenP << " indexes:" << BsIndex << " " <<  JpsiIndex << " " <<  PhiIndex << " " << MupIndex  << " " << MumIndex << " " << KpIndex << " "<< KmIndex << endl;
 
       TVector3 GenSV, GenPV, GenDiff, BsMomentumGen;
@@ -1016,6 +1159,12 @@ bool PDAnalyzer::analyze( int entry, int event_file, int event_tot ) {
       (tWriter->TKmPtGen) = KmGen.Pt();
       (tWriter->TKmPhiGen) = KmGen.Phi();
       (tWriter->TKmEtaGen) = KmGen.Eta();
+      float dx = genVx->at(selectedPVgen)-pvtX->at(selectedPV);
+      float dy = genVy->at(selectedPVgen)-pvtY->at(selectedPV);
+      float dz = genVz->at(selectedPVgen)-pvtZ->at(selectedPV);
+      (tWriter->pvtGenDist) = sqrt(pow(dx,2)+pow(dy,2));
+      (tWriter->pvtGenDist3D) = sqrt(pow(dx,2)+pow(dy,2)+pow(dz,2));
+
     }
   }
 

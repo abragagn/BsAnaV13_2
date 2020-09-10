@@ -164,6 +164,14 @@ void initTree() {
   setBranch("KpPi_Eta_GEN", &TKpEtaGen, "KpPi_Eta_GEN/F", &b_TKpEtaGen);
   setBranch("KpPi_Phi_GEN", &TKpPhiGen, "KpPi_Phi_GEN/F", &b_TKpPhiGen);
 
+  setBranch("pvtGenDist", &pvtGenDist, "pvtGenDist/F", &b_pvtGenDist);
+  setBranch("pvtGenDist3D", &pvtGenDist3D, "pvtGenDist3D/F", &b_pvtGenDist3D);
+  setBranch("pvtGenDist3Derr", &pvtGenDist3Derr, "pvtGenDist3Derr/F", &b_pvtGenDist3Derr);
+  setBranch("pvtBestDist3D", &pvtBestDist3D, "pvtBestDist3D/F", &b_pvtBestDist3D);
+  setBranch("pvtBestDist3Derr", &pvtBestDist3Derr, "pvtBestDist3Derr/F", &b_pvtBestDist3Derr);
+  setBranch("pvtSelectedBestDist3D", &pvtSelectedBestDist3D, "pvtSelectedBestDist3D/F", &b_pvtSelectedBestDist3D);
+  setBranch("nCand", &nCand, "nCand/I", &b_nCand);
+
 
 }
 
@@ -201,6 +209,8 @@ int   TmatchHLTmu, TmatchHLTk;
 int   TgenFound, TmuonsPassSoft;
 ULong64_t Tevt;
 float TKaon_Deltadz,TKaon_DeltaR;
+float pvtGenDist, pvtGenDist3D, pvtGenDist3Derr, pvtBestDist3D, pvtBestDist3Derr, pvtSelectedBestDist3D;
+int nCand;
 
 
 //BRANCHES
@@ -236,6 +246,8 @@ TBranch *b_TmatchHLTmu, *b_TmatchHLTk;
 TBranch *b_TgenFound, *b_TmuonsPassSoft;
 TBranch *b_Tevt;
 TBranch *b_TKaon_Deltadz, *b_TKaon_DeltaR;
+TBranch *b_pvtGenDist, *b_pvtGenDist3D, *b_pvtGenDist3Derr, *b_pvtBestDist3D, *b_pvtBestDist3Derr, *b_pvtSelectedBestDist3D;
+TBranch *b_nCand;
 
 private:
 

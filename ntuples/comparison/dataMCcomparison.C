@@ -27,7 +27,13 @@
 using namespace std;
 using namespace RooFit;
 
-void dataMCcomparison(TString datainput, TString mcinput, TCut selection = "1", TString outDir = "."){
+TString datainput = "/lustre/cmswork/abragagn/BPH/BsAnaV13_2/src/PDAnalysis/Ntu/bin/ntuples/fittree_ntuBsData2018.root";
+TString mcinput = "/lustre/cmswork/abragagn/BPH/BsAnaV13_2/src/PDAnalysis/Ntu/bin/ntuples/fittree_ntuBsDG0MC2018.root";
+TCut selection = "1";
+TString outDir = "./outputDataMC/18";
+
+
+void dataMCcomparison(){
 
   Int_t nbins = 50;
 

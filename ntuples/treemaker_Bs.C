@@ -27,9 +27,9 @@ void treemaker_Bs(TString name = ""){
 
     if(!fIn1) return;
     TTree* t = (TTree*)fIn1->Get("OutTree");
-    Int_t n_entries = t->GetEntries();
+    int n_entries = t->GetEntries();
 
-    Int_t isBs, MuonsPassSoftSelection, HLT_JpsiMu, HLT_JpsiTkTk, MC_Flavour, Tag, N_PV;
+    int isBs, MuonsPassSoftSelection, HLT_JpsiMu, HLT_JpsiTkTk, MC_Flavour, Tag, N_PV;
     Float_t angle_cospsi, angle_costheta, angle_phi, ctau, ctauErr, B_VProb, B_Mass;
     Float_t B_Pt, B_MassFromSV, Mum_Pt, Mum_Eta, Mum_Phi, Mup_Pt, Mup_Eta, Mup_Phi;
     Float_t KmK_Pt, KmK_Eta, KmK_Phi, KpPi_Pt, KpPi_Eta, KpPi_Phi; 
@@ -37,8 +37,15 @@ void treemaker_Bs(TString name = ""){
     Float_t KpPi_Hits, KmK_Hits;
     Float_t PhiKstar_Mass, MisTag, MisTagCal, MisTagCalBs;
     Float_t Mup_HltPt, Mum_HltPt;
-Float_t B_Eta;
-    
+    Float_t B_Eta;
+    int HLT_MatchedJpsi, HLT_MatchedTracks;
+    ULong64_t evt;
+    Float_t lumi, run;
+    int nCand;
+   
+    t->SetBranchAddress("evt",&evt);
+    t->SetBranchAddress("lumi",&lumi);
+    t->SetBranchAddress("run",&run);
     t->SetBranchAddress("isBs",&isBs);
     t->SetBranchAddress("HLT_JpsiMu",&HLT_JpsiMu);
     t->SetBranchAddress("HLT_JpsiTkTk",&HLT_JpsiTkTk);
@@ -73,6 +80,7 @@ Float_t B_Eta;
     t->SetBranchAddress("KpPi_Phi",& KpPi_Phi);
 
     t->SetBranchAddress("N_PV",&N_PV);
+    t->SetBranchAddress("nCand",&nCand);
 
     t->SetBranchAddress("angle_cospsi_GEN",&angle_cospsi_GEN);
     t->SetBranchAddress("angle_costheta_GEN",&angle_costheta_GEN);
@@ -92,13 +100,15 @@ Float_t B_Eta;
     t->SetBranchAddress("MisTagCal",&MisTagCal);
     t->SetBranchAddress("MisTagCalBs",&MisTagCalBs);
 
+    t->SetBranchAddress("HLT_MatchedJpsi",&HLT_MatchedJpsi);
+
        
     Float_t svmass, BsCt2DMC, BscosthetaMC, BscospsiMC, BsphiMC, BsCt2DMCErr, BsCt2DMC_GEN, BscosthetaMC_GEN, BscospsiMC_GEN, BsphiMC_GEN;
     Float_t mistag;
     Float_t BsPt, muonppt, muonmpt, muonpHLTpt, muonmHLTpt, kaonppt, kaonmpt;
     Float_t muonpeta, muonmeta, kaonpeta, kaonmeta;
     Float_t jpsimass, phimass;
-    Int_t Bs_NPV, tag;   
+    int Bs_NPV, tag, nBsCand;   
     Float_t BsEta;
        
     TFile *f = new TFile("fittree_" + name,"RECREATE");
@@ -107,6 +117,7 @@ Float_t B_Eta;
 
     treefit->Branch("svmass",&svmass,"svmass/F");
     treefit->Branch("BsPt",&BsPt,"BsPt/F");
+    treefit->Branch("BsEta",&BsEta,"BsEta/F");
     treefit->Branch("BsCt2DMC",&BsCt2DMC,"BsCt2DMC/F");
     treefit->Branch("BsCt2DMCErr",&BsCt2DMCErr,"BsCt2DMCErr/F");
     treefit->Branch("BscosthetaMC",&BscosthetaMC,"BscosthetaMC/F");
@@ -138,11 +149,13 @@ Float_t B_Eta;
     treefit->Branch("phimass", &phimass, "phimass/F");
 
     treefit->Branch("Bs_NPV",&Bs_NPV,"Bs_NPV/I");
-    treefit->Branch("BsEta",&BsEta,"BsEta/F");
+    treefit->Branch("nBsCand",&nBsCand,"nBsCand/I");
 
-    Int_t npass = 0;
+    int npass = 0;
+    int match =0;
+    int not_match =0;
 
-    for (Int_t i=0;i<n_entries;i++) {
+    for (int i=0;i<n_entries;i++) {
 
         if(i%10000 == 0) cout<<i<<" / "<<n_entries<<endl;
 
@@ -153,7 +166,7 @@ Float_t B_Eta;
             && KmK_Pt > 1.2 && KpPi_Pt > 1.2 
             && fabs(Mum_Eta) < 2.5 && fabs(Mup_Eta) < 2.5
             && fabs(KmK_Eta) < 2.5 && fabs(KpPi_Eta) < 2.5
-            //&& ctau > 0.007
+            && ctau > 0.007
             && abs(Jpsi_Mass-3.0969) < 0.150 
             && abs(PhiKstar_Mass-1.01946) < 0.010 
             && B_VProb > 0.001
@@ -170,6 +183,11 @@ Float_t B_Eta;
 
             if(correctedMistag > 1.) correctedMistag = 1.;
             if(correctedMistag < 0.) correctedMistag = 0.;
+
+            if(HLT_MatchedJpsi) match++;
+            else not_match++;
+
+	    //cout<<run<<":"<<lumi<<":"<<evt<<endl;
 
             svmass          = B_MassFromSV;                                                                                               
             BsPt            = B_Pt;                                                                                               
@@ -201,7 +219,7 @@ Float_t B_Eta;
             muonmHLTpt  = Mum_HltPt;
 
             BsEta = B_Eta;
-
+            nBsCand = nCand;
 
             treefit->Fill();
 
@@ -212,7 +230,8 @@ Float_t B_Eta;
     }
 
     cout<<endl<<"nselected "<<npass<<" (eff "<<(float)npass/(float)n_entries<<")"<<endl;
+    cout<<"match = "<<match<<" "<<"not match = "<<not_match<<endl;
 
-    treefit->Print();
+//    treefit->Print();
     f->Write();
 }

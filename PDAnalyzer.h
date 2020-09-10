@@ -103,6 +103,7 @@ class PDAnalyzer: public virtual PDAnalyzerUtil
 
   bool genOnly;
   bool debug;
+  bool useBestPV;
 
   int counter[5];
 
